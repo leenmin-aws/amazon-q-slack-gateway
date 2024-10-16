@@ -117,11 +117,30 @@ export const updateSlackMessage = async (
   ).chat.update({
     channel: postMessageResponse.channel,
     ts: postMessageResponse.ts,
-    blocks,
-    text
+    blocks: blocks ?? [],
+    text: text
   });
 
   logger.debug(`updateSlackMessage: ${JSON.stringify(response)}`);
+};
+
+export const setThreadStatus = async (
+  env: SlackInteractionsEnv | SlackEventsEnv,
+  channel_id: string,
+  status: string,
+  thread_ts: string
+) => {
+  const response = await (
+    await getSlackClient(env)
+  ).assistant.threads.setStatus({
+    channel_id,
+    status,
+    thread_ts
+  });
+
+  logger.debug(`setThreadStatus: ${JSON.stringify(response)}`);
+
+  return response;
 };
 
 export const openModal = async (
@@ -134,8 +153,7 @@ export const openModal = async (
     await getSlackClient(env)
   ).views.open({
     trigger_id: triggerId,
-    channel,
-    view
+    view: view
   });
 
   logger.debug(JSON.stringify(response));

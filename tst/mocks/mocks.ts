@@ -54,6 +54,7 @@ export const MOCK_DEPENDENCIES = {
   retrieveAttachment: () => Promise.resolve('mock attachment'),
   sendSlackMessage: () => Promise.resolve({} as any),
   updateSlackMessage: () => Promise.resolve({} as any),
+  setThreadStatus: () => Promise.resolve({} as any),
   openModal: () => Promise.resolve({} as any),
   getResponseAsBlocks,
   getFeedbackBlocks,

@@ -7,7 +7,8 @@ import {
   retrieveThreadHistory,
   retrieveAttachment,
   sendSlackMessage,
-  updateSlackMessage
+  updateSlackMessage,
+  setThreadStatus
 } from '@helpers/slack/slack-helpers';
 import { getFeedbackBlocks, getResponseAsBlocks } from '@helpers/amazon-q/amazon-q-helpers';
 import { ChatSyncCommandOutput } from '@aws-sdk/client-qbusiness';
@@ -28,7 +29,8 @@ export const chatDependencies = {
   getFeedbackBlocks,
   retrieveThreadHistory,
   retrieveAttachment,
-  getUserInfo
+  getUserInfo,
+  setThreadStatus
 };
 
 export type ChatDependencies = typeof chatDependencies;

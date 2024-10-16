@@ -12,7 +12,7 @@ import { getOrThrowIfEmpty, isEmpty } from '@src/utils';
 import { makeLogger } from '@src/logging';
 import { chat, getSignInBlocks } from '@helpers/amazon-q/amazon-q-helpers';
 import { UsersInfoResponse } from '@slack/web-api';
-import { FileElement } from '@slack/web-api/dist/response/ConversationsRepliesResponse';
+import { FileElement } from '@slack/web-api/dist/types/response/ConversationsRepliesResponse';
 import { AttachmentInput } from '@aws-sdk/client-qbusiness';
 import { Credentials } from 'aws-sdk';
 
@@ -202,7 +202,7 @@ export const handler = async (
       body.event.user,
       `<@${body.event.user}>, please sign in through the Amazon Q bot app to continue.`,
       blocks,
-      body.event.type === 'app_mention' ? body.event.ts : undefined
+      body.event.type === 'app_mention' || body.event.type === 'message' ? body.event.ts : undefined
     );
 
     // return 200 ok message
@@ -219,11 +219,11 @@ export const handler = async (
 
   // handle message and threads with app_mention
   if (!['message', 'app_mention'].includes(body.event.type) || isEmpty(body.event.client_msg_id)) {
-    console.log(`Ignoring type: ${body.type}`);
+    console.log(`Ignoring type: ${body.event.type}`);
     return {
       statusCode: 200,
       body: JSON.stringify({
-        error: `Unsupported body type ${body.type}`
+        error: `Unsupported body type ${body.event.type}`
       })
     };
   }
@@ -235,6 +235,28 @@ export const handler = async (
         error: `No channel or text to response from`
       })
     };
+  }
+
+
+  // Send response back to AI assistant thread or channel
+  const responseTarget = body.event.type === 'message' ? body.event.user : body.event.channel;
+
+  let slackMessage;
+  if (body.event.type === 'message') {
+    await dependencies.setThreadStatus(
+      slackEventsEnv,
+      body.event.channel,
+      'is processing...',
+      body.event.thread_ts
+    );
+  } else {
+    slackMessage = await dependencies.sendSlackMessage(
+      slackEventsEnv,
+      responseTarget,
+      `Processing...`,
+      [getMarkdownBlock(`Processing...`)],
+      body.event.type === 'app_mention' ? body.event.ts : undefined
+    );
   }
 
   const channelKey = getChannelKey(
@@ -333,7 +355,7 @@ export const handler = async (
     attachments = attachments.slice(-MAX_FILE_ATTACHMENTS);
   }
 
-  const [output, slackMessage] = await Promise.all([
+  const output = await Promise.resolve(
     chat(
       body.event.user,
       prompt,
@@ -342,21 +364,21 @@ export const handler = async (
       slackEventsEnv,
       iamSessionCreds,
       context
-    ),
-    dependencies.sendSlackMessage(
-      slackEventsEnv,
-      body.event.channel,
-      `Processing...`,
-      [getMarkdownBlock(`Processing...`)],
-      body.event.type === 'app_mention' ? body.event.ts : undefined
     )
-  ]);
+  );
 
   if (output instanceof Error) {
     const errMsgWithDetails = `${ERROR_MSG}\n_${output.message}_`;
     const blocks = [getMarkdownBlock(errMsgWithDetails)];
 
-    await dependencies.updateSlackMessage(slackEventsEnv, slackMessage, errMsgWithDetails, blocks);
+    if (slackMessage) {
+      await dependencies.updateSlackMessage(
+        slackEventsEnv,
+        slackMessage,
+        errMsgWithDetails,
+        blocks
+      );
+    }
 
     return {
       statusCode: 200,
@@ -396,21 +418,32 @@ export const handler = async (
       dependencies,
       slackEventsEnv
     ),
-    saveMessageMetadata(output, dependencies, slackEventsEnv),
-    dependencies.updateSlackMessage(
+    saveMessageMetadata(output, dependencies, slackEventsEnv)
+  ]);
+
+  if (slackMessage) {
+    await dependencies.updateSlackMessage(
       slackEventsEnv,
       slackMessage,
       output.systemMessage,
       dependencies.getResponseAsBlocks(output)
-    )
-  ]);
+    );
+  } else {
+    await dependencies.sendSlackMessage(
+      slackEventsEnv,
+      responseTarget,
+      output.systemMessage ?? '',
+      dependencies.getResponseAsBlocks(output),
+      body.event.type === 'app_mention' || body.event.type === 'message' ? body.event.ts : undefined
+    );
+  }
 
   await dependencies.sendSlackMessage(
     slackEventsEnv,
-    body.event.channel,
+    responseTarget,
     FEEDBACK_MESSAGE,
     dependencies.getFeedbackBlocks(output),
-    body.event.type === 'app_mention' ? body.event.ts : undefined
+    body.event.type === 'app_mention' || body.event.type === 'message' ? body.event.ts : undefined
   );
 
   return {

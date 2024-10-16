@@ -5,6 +5,11 @@
     "background_color": "#1d7c00"
   },
   "features": {
+    "app_home": {
+      "home_tab_enabled": false,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    },
     "bot_user": {
       "display_name": "!!! [SlackBotName] !!!",
       "always_online": true
@@ -16,7 +21,28 @@
           "description": "Start a new conversation",
           "should_escape": false
       }
-    ]
+    ],
+    "assistant_view": {
+      "assistant_description": "Ask any question",
+      "suggested_prompts": [
+        {
+          "title": "Greeting",
+          "message": "Hello"
+        },
+        {
+          "title": "LLM",
+          "message": "What is Slack?"
+        },
+        {
+          "title": "RAG",
+          "message": "What countries is AWS in?"
+        },
+        {
+          "title": "RAG 2",
+          "message": "When was AWS founded?"
+        }
+      ]
+    }
   },
   "oauth_config": {
     "redirect_urls": [
@@ -33,7 +59,8 @@
         "im:read",
         "users:read",
         "users:read.email",
-        "commands"
+        "commands",
+        "assistant:write"
       ]
     }
   },
